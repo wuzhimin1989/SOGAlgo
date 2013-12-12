@@ -497,13 +497,17 @@ namespace PAT.Common.Classes.SemanticModels.LTS.Assertion
             Stack<OGMeta_state> MetastateStack = new Stack<OGMeta_state>();
             //Stack<OGMeta_state> StoreMetastateStack = new Stack<OGMeta_state>();
             HashSet<string> GeneratedMetastatesKey = new HashSet<string>(); //new
+            List<string> tmplist = new List<string>();
 
             OGMeta_state TmpMetastate1 = new OGMeta_state();
             OGMeta_state TmpMetastate2 = new OGMeta_state();
+            OGMeta_state TmpmarkMetastate = null;
             OGTransition TmpOGtransition = new OGTransition();
             BDD.State Tmpstate;
             bool ifnew = true;
+            bool ifsameobs = false;
             int CountM = 1;
+            
 
             MetastateStack.Push(this.InitialMetaState);
             //StoreMetastateStack.Push(this.InitialMetaState);
@@ -530,24 +534,61 @@ namespace PAT.Common.Classes.SemanticModels.LTS.Assertion
                         ifnew = false;
                     }
                     else
+                    {
                         ifnew = true;
-
+                        foreach (OGTransition ogt in OGTranstions)
+                        {
+                            if (obs.Event.BaseName.ToString() == ogt.practical_transition.Event.BaseName.ToString())
+                            {
+                                ifsameobs = true;
+                            }
+                            TmpmarkMetastate = ogt.ToMstate;
+                        }
+                    }
                     /***********************************/
 
                     if (ifnew)
                     {
-                        TmpOGtransition.practical_transition = obs;
-                        TmpOGtransition.FromMstate = TmpMetastate1;
-                        TmpOGtransition.ToMstate = TmpMetastate2;
-                        TmpMetastate1.OGOutgoingTransitions.Add(TmpOGtransition);
+                        if (ifsameobs == false)
+                        {
+                            TmpOGtransition.practical_transition = obs;
+                            TmpOGtransition.FromMstate = TmpMetastate1;
+                            TmpOGtransition.ToMstate = TmpMetastate2;
+                            TmpMetastate1.OGOutgoingTransitions.Add(TmpOGtransition);
 
-                        this.MetaStates.Add(TmpMetastate2);
-                        
-                        
-                        this.OGTranstions.Add(TmpOGtransition);
-                        MetastateStack.Push(TmpMetastate2);
+                            this.MetaStates.Add(TmpMetastate2);
+                            this.OGTranstions.Add(TmpOGtransition);
+                            GeneratedMetastatesKey.Add(TmpMetastate2.MKey);
+                            MetastateStack.Push(TmpMetastate2);
+                        }
+                        else
+                        {
+                            foreach (BDD.State s in TmpmarkMetastate.ReachableStates)
+                                tmplist.Add(s.ID);
+                            foreach (BDD.State s in TmpMetastate2.ReachableStates)
+                            {
+                                if (!TmpmarkMetastate.ReachableStates.Contains(s))
+                                {
+                                    TmpmarkMetastate.ReachableStates.Add(s);
+                                    tmplist.Add(s.ID);
+                                }
+                            }
+                            foreach (BDD.Transition t in TmpMetastate2.OutgoingTransitions)
+                                TmpmarkMetastate.OutgoingTransitions.Add(t);
+                            if (TmpmarkMetastate.IfCycle || TmpMetastate2.IfCycle)
+                                TmpmarkMetastate.IfCycle = true;
+                            if (TmpmarkMetastate.IfDead || TmpMetastate2.IfDead)
+                                TmpmarkMetastate.IfDead = true;
 
-                        GeneratedMetastatesKey.Add(TmpMetastate2.MKey);
+                            GeneratedMetastatesKey.Remove(TmpmarkMetastate.MKey);
+                            TmpmarkMetastate.MKey = null;
+                            tmplist.Sort();
+                            foreach (string s in tmplist)
+                                TmpmarkMetastate.MKey += s;
+                            TmpmarkMetastate.MKey += TmpmarkMetastate.IfCycle.ToString();
+                            TmpmarkMetastate.MKey += TmpmarkMetastate.IfDead.ToString();
+                            GeneratedMetastatesKey.Add(TmpmarkMetastate.MKey);
+                        }
                         //StoreMetastateStack.Push(TmpMetastate2);
                     }
                     else
