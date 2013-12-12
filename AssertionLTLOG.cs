@@ -311,10 +311,11 @@ namespace PAT.Common.Classes.SemanticModels.LTS.Assertion
 
         public int DefineDead()
         {
-            bool ifdead = true;
+            bool ifdead;
             int count = 0;
             foreach (BDD.State s in ReachableStates)
             {
+                ifdead = true;
                 foreach (BDD.Transition t in s.OutgoingTransitions)  //use hashtable
                 {
                     if (!string.Equals(t.ToState.ID, s.ID))
@@ -519,6 +520,7 @@ namespace PAT.Common.Classes.SemanticModels.LTS.Assertion
              
                 foreach (BDD.Transition obs in TmpMetastate1.OutgoingTransitions)
                 {
+                    ifsameobs = false;
                     Tmpstate = obs.ToState;
                     TmpMetastate2.ID = (CountM++).ToString(); //new
                     if (GenerateReachableState(ref TmpMetastate2, Tmpstate))
@@ -538,11 +540,12 @@ namespace PAT.Common.Classes.SemanticModels.LTS.Assertion
                         ifnew = true;
                         foreach (OGTransition ogt in OGTranstions)
                         {
-                            if (obs.Event.BaseName.ToString() == ogt.practical_transition.Event.BaseName.ToString())
+                            if (obs.Event.BaseName.ToString() == ogt.practical_transition.Event.BaseName.ToString() && String.Equals(TmpMetastate1.MKey, ogt.FromMstate.MKey))
                             {
                                 ifsameobs = true;
+                                TmpmarkMetastate = ogt.ToMstate;
                             }
-                            TmpmarkMetastate = ogt.ToMstate;
+                            
                         }
                     }
                     /***********************************/
