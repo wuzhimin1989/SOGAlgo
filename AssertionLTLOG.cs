@@ -1108,7 +1108,7 @@ namespace PAT.Common.Classes.SemanticModels.LTS.Assertion
             count = 0;
 
             /***ONE LTS AFTER PRODUCT, TO TEST BUILD OG***/
-            BDD.SymbolicLTS SAMPLE = new BDD.SymbolicLTS();
+            /*BDD.SymbolicLTS SAMPLE = new BDD.SymbolicLTS();
             Event[] el = new Event[8];
             Event tmp = new Event("a");
             el[0] = tmp;
@@ -1279,25 +1279,146 @@ namespace PAT.Common.Classes.SemanticModels.LTS.Assertion
                 SAMPLE.States.Add(sl[j]);
 
             for (int j = 0; j < 19; j++)
-                SAMPLE.Transitions.Add(tl[j]);
+                SAMPLE.Transitions.Add(tl[j]);*/
             /******************************************/
 
             /*****LTS TWO, TWO MOULAR LTS FOR TESTING***/
+            BDD.SymbolicLTS[] Samplelist = new BDD.SymbolicLTS[2];
+            Samplelist[0] = new BDD.SymbolicLTS();
+            Samplelist[1] = new BDD.SymbolicLTS();
+            Event[] el = new Event[8];
+            Event tmp = new Event("a");
+            el[0] = tmp;
+            tmp = new Event("b");
+            el[1] = tmp;
+            tmp = new Event("c");
+            el[2] = tmp;
+            tmp = new Event("d");
+            el[3] = tmp;
+            tmp = new Event("e");
+            el[4] = tmp;
+            tmp = new Event("f");
+            el[5] = tmp;
+            tmp = new Event("sync");
+            el[6] = tmp;
+            tmp = new Event("obs");
+            el[7] = tmp;
 
+            BDD.State[] sl1 = new BDD.State[5];
+            sl1[0] = new BDD.State("A1", "1");
+            sl1[1] = new BDD.State("A2", "2");
+            sl1[2] = new BDD.State("A3", "3");
+            sl1[3] = new BDD.State("A4", "4");
+            sl1[4] = new BDD.State("A5", "5");
+
+            BDD.State[] sl2 = new BDD.State[3];
+            sl2[0] = new BDD.State("B1", "1");
+            sl2[1] = new BDD.State("B2", "2");
+            sl2[2] = new BDD.State("B3", "3");
+
+            BDD.Transition [] tl1 = new BDD.Transition[7];
+            tl1[0] = new BDD.Transition();
+            tl1[0].Event = el[0];
+            tl1[0].FromState = sl1[0];
+            tl1[0].ToState = sl1[1];
+            sl1[0].OutgoingTransitions.Add(tl1[0]);
+            sl1[1].IncomingTransition.Add(tl1[0]);
+
+            tl1[1] = new BDD.Transition();
+            tl1[1].Event = el[1];
+            tl1[1].FromState = sl1[0];
+            tl1[1].ToState = sl1[2];
+            sl1[0].OutgoingTransitions.Add(tl1[1]);
+            sl1[2].IncomingTransition.Add(tl1[1]);
+
+            tl1[2] = new BDD.Transition();
+            tl1[2].Event = el[2];
+            tl1[2].FromState = sl1[2];
+            tl1[2].ToState = sl1[2];
+            sl1[2].OutgoingTransitions.Add(tl1[2]);
+            sl1[2].IncomingTransition.Add(tl1[2]);
+
+            tl1[3] = new BDD.Transition();
+            tl1[3].Event = el[6];
+            tl1[3].FromState = sl1[1];
+            tl1[3].ToState = sl1[3];
+            sl1[1].OutgoingTransitions.Add(tl1[3]);
+            sl1[3].IncomingTransition.Add(tl1[3]);
+
+            tl1[4] = new BDD.Transition();
+            tl1[4].Event = el[3];
+            tl1[4].FromState = sl1[3];
+            tl1[4].ToState = sl1[0];
+            sl1[3].OutgoingTransitions.Add(tl1[4]);
+            sl1[3].IncomingTransition.Add(tl1[4]);
+
+            tl1[5] = new BDD.Transition();
+            tl1[5].Event = el[6];
+            tl1[5].FromState = sl1[2];
+            tl1[5].ToState = sl1[4];
+            sl1[2].OutgoingTransitions.Add(tl1[5]);
+            sl1[4].IncomingTransition.Add(tl1[5]);
+
+            tl1[6] = new BDD.Transition();
+            tl1[6].Event = el[7];
+            tl1[6].FromState = sl1[4];
+            tl1[6].ToState = sl1[3];
+            sl1[4].OutgoingTransitions.Add(tl1[6]);
+            sl1[3].IncomingTransition.Add(tl1[6]);
+
+            Samplelist[0].InitialState = sl1[0];
+            Samplelist[0].Name = "SAMPLE1";
+            for (int j = 0; j < 5; j++)
+                Samplelist[0].States.Add(sl1[j]);
+
+            for (int j = 0; j < 7; j++)
+                Samplelist[0].Transitions.Add(tl1[j]);
+
+
+            BDD.Transition [] tl2 = new BDD.Transition[3];
+            tl2[0] = new BDD.Transition();
+            tl2[0].Event = el[4];
+            tl2[0].FromState = sl2[0];
+            tl2[0].ToState = sl2[1];
+            sl2[0].OutgoingTransitions.Add(tl2[0]);
+            sl2[1].IncomingTransition.Add(tl2[0]);
+
+            tl2[1] = new BDD.Transition();
+            tl2[1].Event = el[5];
+            tl2[1].FromState = sl2[1];
+            tl2[1].ToState = sl2[0];
+            sl2[1].OutgoingTransitions.Add(tl2[1]);
+            sl2[0].IncomingTransition.Add(tl2[1]);
+
+            tl2[2] = new BDD.Transition();
+            tl2[2].Event = el[6];
+            tl2[2].FromState = sl2[1];
+            tl2[2].ToState = sl2[2];
+            sl2[1].OutgoingTransitions.Add(tl2[2]);
+            sl2[2].IncomingTransition.Add(tl2[2]);
+
+            Samplelist[1].InitialState = sl2[0];
+            Samplelist[1].Name = "SAMPLE2";
+            for (int j = 0; j < 3; j++)
+                Samplelist[0].States.Add(sl1[j]);
+
+            for (int j = 0; j < 3; j++)
+                Samplelist[0].Transitions.Add(tl1[j]);
             /*******************************************/
 
 
             //ADD MODULAR LTS.
-            SynOBGraph.AddModularLTS(SAMPLE);
+            SynOBGraph.AddModularLTS(Samplelist[0]);
+            SynOBGraph.AddModularLTS(Samplelist[1]);
             SynOBGraph.GenerateSynEvent();
-
+  
             /***FOR TESTING,MAUNAL GENERATE LTS***/
 
            
 
             while (SynOBGraph.AllModularLTS.Count > count)
             {
-                ObservationGraph[count] = new ModularOG(ref SAMPLE);  //must get graph from pat
+                ObservationGraph[count] = new ModularOG(ref Samplelist[count]);  //must get graph from pat
                 ObservationGraph[count].GenerateObsSet(BA, SynOBGraph.SynEvents);
                 ObservationGraph[count].InitMetastate();
                 ObservationGraph[count].BuildOG();
