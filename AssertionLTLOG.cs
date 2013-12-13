@@ -462,8 +462,12 @@ namespace PAT.Common.Classes.SemanticModels.LTS.Assertion
             }
             if (StateClosureCount == 0)
             {
-                if(!NewMetastate.ReachableStates.Contains(Ori))
+                if (!NewMetastate.ReachableStates.Contains(Ori))
+                {
                     NewMetastate.ReachableStates.Add(Ori);
+                }
+                foreach (BDD.State s in NewMetastate.ReachableStates)
+                    NewMetastate.MKey += s.ID.ToString();
                 return true;
             }
             else
@@ -520,6 +524,7 @@ namespace PAT.Common.Classes.SemanticModels.LTS.Assertion
              
                 foreach (BDD.Transition obs in TmpMetastate1.OutgoingTransitions)
                 {
+                    tmplist.Clear();
                     ifsameobs = false;
                     Tmpstate = obs.ToState;
                     TmpMetastate2.ID = (CountM++).ToString(); //new
@@ -560,7 +565,10 @@ namespace PAT.Common.Classes.SemanticModels.LTS.Assertion
                             TmpMetastate1.OGOutgoingTransitions.Add(TmpOGtransition);
 
                             this.MetaStates.Add(TmpMetastate2);
-                            this.OGTranstions.Add(TmpOGtransition);
+                            if(!this.OGTranstions.Contains(TmpOGtransition))
+                            {
+                                this.OGTranstions.Add(TmpOGtransition);
+                            }
                             GeneratedMetastatesKey.Add(TmpMetastate2.MKey);
                             MetastateStack.Push(TmpMetastate2);
                         }
@@ -590,7 +598,30 @@ namespace PAT.Common.Classes.SemanticModels.LTS.Assertion
                                 TmpmarkMetastate.MKey += s;
                             TmpmarkMetastate.MKey += TmpmarkMetastate.IfCycle.ToString();
                             TmpmarkMetastate.MKey += TmpmarkMetastate.IfDead.ToString();
-                            GeneratedMetastatesKey.Add(TmpmarkMetastate.MKey);
+
+                            if (!GeneratedMetastatesKey.Contains(TmpmarkMetastate.MKey))
+                                GeneratedMetastatesKey.Add(TmpmarkMetastate.MKey);
+                            else
+                            {
+                                this.MetaStates.Remove(TmpmarkMetastate);
+                                foreach (OGTransition o in TmpMetastate1.OGOutgoingTransitions)
+                                {
+                                    if (o.ToMstate == TmpmarkMetastate)
+                                        TmpMetastate1.OGOutgoingTransitions.Remove(o);
+                                }
+                                foreach (OGTransition o in this.OGTranstions)
+                                {
+                                    if (o.ToMstate == TmpmarkMetastate)
+                                        this.OGTranstions.Remove(o);
+                                }
+
+                                if (MetastateStack.Peek() == TmpmarkMetastate)
+                                    MetastateStack.Pop();
+                                else
+                                {
+                                    //copy metastatestack to another array and delete that one
+                                }
+                            }
                         }
                         //StoreMetastateStack.Push(TmpMetastate2);
                     }
@@ -1400,10 +1431,10 @@ namespace PAT.Common.Classes.SemanticModels.LTS.Assertion
             Samplelist[1].InitialState = sl2[0];
             Samplelist[1].Name = "SAMPLE2";
             for (int j = 0; j < 3; j++)
-                Samplelist[0].States.Add(sl1[j]);
+                Samplelist[1].States.Add(sl2[j]);
 
             for (int j = 0; j < 3; j++)
-                Samplelist[0].Transitions.Add(tl1[j]);
+                Samplelist[1].Transitions.Add(tl2[j]);
             /*******************************************/
 
 
