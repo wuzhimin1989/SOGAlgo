@@ -604,6 +604,8 @@ namespace PAT.Common.Classes.SemanticModels.LTS.Assertion
                             else
                             {
                                 this.MetaStates.Remove(TmpmarkMetastate);
+
+                                /***Maybe should not delete the transition, but judge if their from state is different, if different, just modify the transition***/
                                 foreach (OGTransition o in TmpMetastate1.OGOutgoingTransitions)
                                 {
                                     if (o.ToMstate == TmpmarkMetastate)
@@ -619,6 +621,20 @@ namespace PAT.Common.Classes.SemanticModels.LTS.Assertion
                                     MetastateStack.Pop();
                                 else
                                 {
+                                    int i = 0;
+                                    List<OGMeta_state> l = MetastateStack.ToList();
+                                    l.Remove(TmpmarkMetastate);
+                                    OGMeta_state [] tl = new OGMeta_state[l.Count];
+                                    foreach (OGMeta_state o in l)
+                                    {
+                                        tl[i] = o;
+                                        i++;
+                                    }
+                                    MetastateStack.Clear();
+                                    for (i = tl.Length - 1; i >= 0; i++)
+                                    {
+                                        MetastateStack.Push(tl[i]);
+                                    }
                                     //copy metastatestack to another array and delete that one
                                 }
                             }
