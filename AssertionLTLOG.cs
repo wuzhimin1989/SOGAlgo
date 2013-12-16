@@ -6,12 +6,14 @@ using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Diagnostics;
+using PAT.LTS;
 using PAT.Common.Classes.BA;
 using PAT.Common.Classes.DataStructure;
 using PAT.Common.Classes.LTS;
 using PAT.Common.Classes.ModuleInterface;
 using PAT.Common.Classes.Ultility;
 using PAT.Common.Classes.SemanticModels.LTS.SymbolicMCAlgo.LTSEncoding;
+
 
 namespace PAT.Common.Classes.SemanticModels.LTS.Assertion
 {
@@ -90,6 +92,8 @@ namespace PAT.Common.Classes.SemanticModels.LTS.Assertion
 
         public string FromSynMstate;
         public string ToSynMstate;
+
+        public string OGTKey;
 
         public OGTransition()
         {
@@ -220,6 +224,12 @@ namespace PAT.Common.Classes.SemanticModels.LTS.Assertion
             BDD.State tmp1;
             BDD.State tmp2;
             BDD.Transition tmpt;
+
+            if (this.ReachableStates.Count == 1 && this.OutgoingTransitions.Count == 0)
+            {
+                this.IfCycle = false;
+                return 0;
+            }
 
             Stack<BDD.State> tmpstack = new Stack<BDD.State>(); //
             Stack<BDD.State> explored = new Stack<BDD.State>(); //
@@ -502,7 +512,9 @@ namespace PAT.Common.Classes.SemanticModels.LTS.Assertion
             Stack<OGMeta_state> MetastateStack = new Stack<OGMeta_state>();
             //Stack<OGMeta_state> StoreMetastateStack = new Stack<OGMeta_state>();
             HashSet<string> GeneratedMetastatesKey = new HashSet<string>(); //new
+            HashSet<string> GenerateOGTransitionKey = new HashSet<string>();
             List<string> tmplist = new List<string>();
+            List<string> Obtifvisited = new List<string>();
 
             OGMeta_state TmpMetastate1 = new OGMeta_state();
             OGMeta_state TmpMetastate2 = new OGMeta_state();
@@ -524,6 +536,11 @@ namespace PAT.Common.Classes.SemanticModels.LTS.Assertion
              
                 foreach (BDD.Transition obs in TmpMetastate1.OutgoingTransitions)
                 {
+                    if (!Obtifvisited.Contains(obs.FromState.ID + obs.Event.BaseName + obs.ToState.ID))
+                        Obtifvisited.Add(obs.FromState.ID + obs.Event.BaseName + obs.ToState.ID);
+                    else
+                        continue;
+
                     tmplist.Clear();
                     ifsameobs = false;
                     Tmpstate = obs.ToState;
@@ -536,6 +553,17 @@ namespace PAT.Common.Classes.SemanticModels.LTS.Assertion
                     TmpMetastate2.MKey = TmpMetastate2.MKey + TmpMetastate2.IfCycle + TmpMetastate2.IfDead;
                     
                     /*****judge if a new Meta states***use string hashset*/
+                    foreach (OGTransition ogt in OGTranstions)
+                    {
+                        if (obs.Event.BaseName.ToString() == ogt.practical_transition.Event.BaseName.ToString() && String.Equals(TmpMetastate1.MKey, ogt.FromMstate.MKey))
+                        {
+                            ifsameobs = true;
+                            ifnew = true;
+                            TmpmarkMetastate = ogt.ToMstate;
+                            goto label;
+                        }
+
+                    }
                     if (GeneratedMetastatesKey.Contains(TmpMetastate2.MKey))
                     {
                         ifnew = false;
@@ -543,32 +571,27 @@ namespace PAT.Common.Classes.SemanticModels.LTS.Assertion
                     else
                     {
                         ifnew = true;
-                        foreach (OGTransition ogt in OGTranstions)
-                        {
-                            if (obs.Event.BaseName.ToString() == ogt.practical_transition.Event.BaseName.ToString() && String.Equals(TmpMetastate1.MKey, ogt.FromMstate.MKey))
-                            {
-                                ifsameobs = true;
-                                TmpmarkMetastate = ogt.ToMstate;
-                            }
-                            
-                        }
+                        
                     }
                     /***********************************/
-
+                label:
                     if (ifnew)
                     {
                         if (ifsameobs == false)
                         {
+                            TmpOGtransition = new OGTransition();
                             TmpOGtransition.practical_transition = obs;
                             TmpOGtransition.FromMstate = TmpMetastate1;
                             TmpOGtransition.ToMstate = TmpMetastate2;
+                            TmpOGtransition.OGTKey = obs.Event.ToString() + TmpMetastate1.MKey + TmpMetastate2.MKey;
                             TmpMetastate1.OGOutgoingTransitions.Add(TmpOGtransition);
 
                             this.MetaStates.Add(TmpMetastate2);
-                            if(!this.OGTranstions.Contains(TmpOGtransition))
+                            if(!GenerateOGTransitionKey.Contains(TmpOGtransition.OGTKey))
                             {
                                 this.OGTranstions.Add(TmpOGtransition);
                             }
+                            GenerateOGTransitionKey.Add(TmpOGtransition.OGTKey);
                             GeneratedMetastatesKey.Add(TmpMetastate2.MKey);
                             MetastateStack.Push(TmpMetastate2);
                         }
@@ -600,21 +623,59 @@ namespace PAT.Common.Classes.SemanticModels.LTS.Assertion
                             TmpmarkMetastate.MKey += TmpmarkMetastate.IfDead.ToString();
 
                             if (!GeneratedMetastatesKey.Contains(TmpmarkMetastate.MKey))
+                            {
                                 GeneratedMetastatesKey.Add(TmpmarkMetastate.MKey);
+                                foreach (OGTransition o in this.OGTranstions)
+                                {
+                                    if (o.ToMstate == TmpmarkMetastate)
+                                        o.OGTKey = o.practical_transition.Event.ToString() + o.FromMstate.MKey + o.ToMstate.MKey;
+                                    break;
+                                }
+                            }
                             else
                             {
+                                bool dupmark = false;
+                                OGTransition tmpdupmark = null;
+                                foreach (OGTransition o in this.OGTranstions)
+                                {
+                                    if (o.ToMstate.MKey.Equals(TmpmarkMetastate.MKey) && !o.FromMstate.MKey.Equals(TmpMetastate1.MKey) && !TmpMetastate1.MKey.Equals(TmpmarkMetastate.MKey))
+                                    {
+                                        dupmark = true;
+                                        tmpdupmark = o;
+                                        break;
+                                    }
+                                }
+
                                 this.MetaStates.Remove(TmpmarkMetastate);
 
                                 /***Maybe should not delete the transition, but judge if their from state is different, if different, just modify the transition***/
                                 foreach (OGTransition o in TmpMetastate1.OGOutgoingTransitions)
                                 {
                                     if (o.ToMstate == TmpmarkMetastate)
-                                        TmpMetastate1.OGOutgoingTransitions.Remove(o);
+                                    {
+                                        if (dupmark == false)
+                                            TmpMetastate1.OGOutgoingTransitions.Remove(o);
+                                        else
+                                        {
+                                            o.ToMstate = tmpdupmark.ToMstate;
+                                            o.OGTKey = o.practical_transition.Event.ToString()+o.FromMstate.MKey+o.ToMstate.MKey;
+                                        }
+                                        break;
+                                    }
                                 }
                                 foreach (OGTransition o in this.OGTranstions)
                                 {
                                     if (o.ToMstate == TmpmarkMetastate)
-                                        this.OGTranstions.Remove(o);
+                                    {
+                                        if (dupmark == false)
+                                            this.OGTranstions.Remove(o);
+                                        else
+                                        {
+                                            o.ToMstate = tmpdupmark.ToMstate;
+                                            o.OGTKey = o.practical_transition.Event.ToString()+o.FromMstate.MKey+o.ToMstate.MKey;
+                                        }
+                                        break;
+                                    }
                                 }
 
                                 if (MetastateStack.Peek() == TmpmarkMetastate)
@@ -624,7 +685,7 @@ namespace PAT.Common.Classes.SemanticModels.LTS.Assertion
                                     int i = 0;
                                     List<OGMeta_state> l = MetastateStack.ToList();
                                     l.Remove(TmpmarkMetastate);
-                                    OGMeta_state [] tl = new OGMeta_state[l.Count];
+                                    OGMeta_state[] tl = new OGMeta_state[l.Count];
                                     foreach (OGMeta_state o in l)
                                     {
                                         tl[i] = o;
@@ -637,6 +698,7 @@ namespace PAT.Common.Classes.SemanticModels.LTS.Assertion
                                     }
                                     //copy metastatestack to another array and delete that one
                                 }
+
                             }
                         }
                         //StoreMetastateStack.Push(TmpMetastate2);
@@ -780,9 +842,9 @@ namespace PAT.Common.Classes.SemanticModels.LTS.Assertion
 
             for(i=0;i<2;i++)
             {
+                TmpEnable[i] = new List<string>();
                 foreach (BDD.Transition t in M[i].OutgoingTransitions)
-                {
-                    TmpEnable[i] = new List<string>();
+                {               
                     TmpEnable[i].Add(t.Event.ToString());
                 }
             }
@@ -792,7 +854,7 @@ namespace PAT.Common.Classes.SemanticModels.LTS.Assertion
             {
                 if(ifdead[i] == false)
                 {
-                    TmpE = synlist.Except(TmpEnable[1-i]);
+                    TmpE = synlist.Except(TmpEnable[1-i],StringComparer.OrdinalIgnoreCase);
                     foreach (BDD.State s in M[i].ReachableStates)
                     {
                         foreach (BDD.Transition ss in s.OutgoingTransitions)
@@ -801,7 +863,7 @@ namespace PAT.Common.Classes.SemanticModels.LTS.Assertion
                         }
                         if(TmpSEnable.Intersect(TmpE).Count() != 0)
                         {
-                            if(TmpSEnable.Except(TmpE).Count() == 0)
+                            if(TmpSEnable.Except(TmpE,StringComparer.OrdinalIgnoreCase).Count() == 0)
                             {
                                 ifdead[i] = true;
                                 break;
@@ -832,7 +894,7 @@ namespace PAT.Common.Classes.SemanticModels.LTS.Assertion
                         }
                         if(TmpSEnable.Intersect(synlist).Count() != 0)
                         {
-                            if(TmpSEnable.Except(synlist).Count() == 0)
+                            if(TmpSEnable.Except(synlist,StringComparer.OrdinalIgnoreCase).Count() == 0)
                             {
                                 this.SynIfdead = true;
                                 return true;
@@ -857,8 +919,8 @@ namespace PAT.Common.Classes.SemanticModels.LTS.Assertion
                 {
                     if(sync[i].Except(TmpEnable[1-i]).Count() != 0)
                     {
-                        TmpUnion = sync[i].Except(TmpEnable[1-i]);
-                        sync[i] = sync[i].Except(TmpUnion);
+                        TmpUnion = sync[i].Except(TmpEnable[1-i],StringComparer.OrdinalIgnoreCase);
+                        sync[i] = sync[i].Except(TmpUnion,StringComparer.OrdinalIgnoreCase);
                     }  
 
                     foreach (BDD.State s in M[1-i].ReachableStates)
@@ -925,6 +987,7 @@ namespace PAT.Common.Classes.SemanticModels.LTS.Assertion
         {
             SynOGMetastates = new Dictionary<string, SynOGMetastate>();
             //InitialSynOGMetastate = new KeyValuePair<OGMeta_state,OGMeta_state>();
+            InitialSynOGMetastate = new SynOGMetastate();
             SynOBTransitions = new List<OGTransition>();
             SynEvents = new List<string>();
             AllModularOGs = new Dictionary<string, ModularOG>();
@@ -1080,6 +1143,61 @@ namespace PAT.Common.Classes.SemanticModels.LTS.Assertion
                 Mstate1 = SOGM.SynMeta_state.Key;
                 Mstate2 = SOGM.SynMeta_state.Value;
 
+                if (Mstate1.OGOutgoingTransitions.Count == 0 && Mstate2.OGOutgoingTransitions.Count == 0)
+                {
+                    continue;
+                }
+                if (Mstate1.OGOutgoingTransitions.Count == 0 && Mstate2.OGOutgoingTransitions.Count != 0)
+                {
+                    foreach (OGTransition MOGT2 in Mstate2.OGOutgoingTransitions)
+                    {
+                        SOGM2.SynMeta_state = new KeyValuePair<OGMeta_state, OGMeta_state>(Mstate1, MOGT2.ToMstate);
+                        SOGM2.ID = Mstate1.MKey + MOGT2.ToMstate.MKey;
+
+                        SOGT.practical_transition = MOGT2.practical_transition;
+                        SOGT.FromSynMstate = SOGM.ID;
+                        SOGT.ToSynMstate = SOGM2.ID;
+
+                        SOGM2.InputTransition.Add(SOGT);
+                        SOGM2.SynDefineCycle();
+                        SOGM2.SynDefineDead(SynEvents);
+
+                        SynOGMetastates.Add(SOGM2.ID, SOGM2);
+                        SynOBTransitions.Add(SOGT);
+
+                        Todo.Push(SOGM2);
+
+                        SOGM2 = new SynOGMetastate();
+                        SOGT = new OGTransition();
+                    }
+                    continue;
+                }
+                if (Mstate2.OGOutgoingTransitions.Count == 0 && Mstate1.OGOutgoingTransitions.Count != 0)
+                {
+                    foreach (OGTransition MOGT1 in Mstate1.OGOutgoingTransitions)
+                    {
+                        SOGM2.SynMeta_state = new KeyValuePair<OGMeta_state, OGMeta_state>(MOGT1.ToMstate, Mstate2);
+                        SOGM2.ID = Mstate1.MKey + MOGT1.ToMstate.MKey;
+
+                        SOGT.practical_transition = MOGT1.practical_transition;
+                        SOGT.FromSynMstate = SOGM.ID;
+                        SOGT.ToSynMstate = SOGM2.ID;
+
+                        SOGM2.InputTransition.Add(SOGT);
+                        SOGM2.SynDefineCycle();
+                        SOGM2.SynDefineDead(SynEvents);
+
+                        SynOGMetastates.Add(SOGM2.ID, SOGM2);
+                        SynOBTransitions.Add(SOGT);
+
+                        Todo.Push(SOGM2);
+
+                        SOGM2 = new SynOGMetastate();
+                        SOGT = new OGTransition();
+                    }
+                    continue;
+                }
+
                 foreach (OGTransition MOGT1 in Mstate1.OGOutgoingTransitions)
                 {
                     foreach (OGTransition MOGT2 in Mstate2.OGOutgoingTransitions)
@@ -1141,7 +1259,7 @@ namespace PAT.Common.Classes.SemanticModels.LTS.Assertion
         }
     }
 
-    public partial class AssertionLTL
+    public partial class CompleteOG:
     {
         public SynOG SynOBGraph;
         public ModularOG[] ObservationGraph;
@@ -1151,7 +1269,7 @@ namespace PAT.Common.Classes.SemanticModels.LTS.Assertion
         {
             //ObservationGraph = new OG();
             SynOBGraph = new SynOG();
-            ObservationGraph = new ModularOG[1];
+            ObservationGraph = new ModularOG[2];
             count = 0;
 
             /***ONE LTS AFTER PRODUCT, TO TEST BUILD OG***/
@@ -1363,7 +1481,7 @@ namespace PAT.Common.Classes.SemanticModels.LTS.Assertion
             sl2[1] = new BDD.State("B2", "2");
             sl2[2] = new BDD.State("B3", "3");
 
-            BDD.Transition [] tl1 = new BDD.Transition[7];
+            BDD.Transition[] tl1 = new BDD.Transition[7];
             tl1[0] = new BDD.Transition();
             tl1[0].Event = el[0];
             tl1[0].FromState = sl1[0];
@@ -1422,7 +1540,7 @@ namespace PAT.Common.Classes.SemanticModels.LTS.Assertion
                 Samplelist[0].Transitions.Add(tl1[j]);
 
 
-            BDD.Transition [] tl2 = new BDD.Transition[3];
+            BDD.Transition[] tl2 = new BDD.Transition[3];
             tl2[0] = new BDD.Transition();
             tl2[0].Event = el[4];
             tl2[0].FromState = sl2[0];
@@ -1458,10 +1576,10 @@ namespace PAT.Common.Classes.SemanticModels.LTS.Assertion
             SynOBGraph.AddModularLTS(Samplelist[0]);
             SynOBGraph.AddModularLTS(Samplelist[1]);
             SynOBGraph.GenerateSynEvent();
-  
+
             /***FOR TESTING,MAUNAL GENERATE LTS***/
 
-           
+
 
             while (SynOBGraph.AllModularLTS.Count > count)
             {
@@ -1469,6 +1587,7 @@ namespace PAT.Common.Classes.SemanticModels.LTS.Assertion
                 ObservationGraph[count].GenerateObsSet(BA, SynOBGraph.SynEvents);
                 ObservationGraph[count].InitMetastate();
                 ObservationGraph[count].BuildOG();
+                ObservationGraph[count].ID = count.ToString();
                 SynOBGraph.AddModularOG(ObservationGraph[count]);
                 count++;
             }
@@ -1476,12 +1595,20 @@ namespace PAT.Common.Classes.SemanticModels.LTS.Assertion
             //basement, suppose two modulars
             SynOBGraph.BuildSynOG(ObservationGraph[0].ID, ObservationGraph[1].ID);
 
-
-
         }
+    }
+
+    public partial class ConfigurabaseOG
+    {
+    }
+
+    public partial class AssertionLTL
+    {
+        ConfigurabaseOG COG;
 
         private void OGVerification()   //on-the-fly OG verfication based on tarjan verfication in LTS
         {
+            
         /*   VerificationOutput.CounterExampleTrace = null;
 
 
@@ -1489,7 +1616,7 @@ namespace PAT.Common.Classes.SemanticModels.LTS.Assertion
             Dictionary<string, List<string>> OutgoingTransitionTable = new Dictionary<string, List<string>>(Ultility.Ultility.MC_INITIAL_SIZE);
 
             //DFS Stack
-            //Stack<KeyValuePair<ConfigurationBase, string>> TaskStack = new Stack<KeyValuePair<ConfigurationBase, string>>(5000);
+            Stack<KeyValuePair<ConfigurationBase, string>> TaskStack = new Stack<KeyValuePair<ConfigurationBase, string>>(5000);
             Stack<KeyValuePair<OGMeta_state, string>> TaskStack = new Stack<KeyValuePair<OGMeta_state, string>>(5000); //new
 
             //DFS data, which mapping each state to an int[] of size 2, first is the pre-order, second is the lowlink
