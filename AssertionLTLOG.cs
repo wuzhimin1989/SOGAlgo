@@ -122,6 +122,11 @@ namespace PAT.CLTS.Assertions
                 this.IfCycle = false;
                 return 0;
             }
+            if (this.ReachableStates.Count > this.UobTransitions.Count)
+            {
+                this.IfCycle = false;
+                return 0;
+            }
 
             Stack<State> tmpstack = new Stack<State>(); //
             Stack<State> explored = new Stack<State>(); //
@@ -166,7 +171,7 @@ namespace PAT.CLTS.Assertions
                                 {
                                     tmp2.lowlink = Index;
                                     tmp2.Index = Index;
-                                    explored.Push(tmp2);
+                                    //explored.Push(tmp2);
                                     tmpstack.Push(tmp2);
                                     Index++;
                                 }
@@ -429,6 +434,22 @@ namespace PAT.CLTS.Assertions
                         TmpMetastate2.DefineDead();
                     }
                     TmpMetastate2.MKey = TmpMetastate2.MKey + TmpMetastate2.IfCycle + TmpMetastate2.IfDead;
+
+                    if (TmpMetastate1.MKey == TmpMetastate2.MKey)
+                    {
+                        TmpOGtransition = new OGTransition();
+                        TmpOGtransition.practical_transition = obs;
+                        TmpOGtransition.FromMstate = TmpMetastate1;
+                        TmpOGtransition.ToMstate = TmpMetastate2;
+                        TmpOGtransition.OGTKey = obs.Event.ToString() + TmpMetastate1.MKey + TmpMetastate2.MKey;
+                        TmpMetastate1.OGOutgoingTransitions.Add(TmpOGtransition);
+                        if (!GenerateOGTransitionKey.Contains(TmpOGtransition.OGTKey))
+                        {
+                            this.OGTranstions.Add(TmpOGtransition);
+                        }
+                        GenerateOGTransitionKey.Add(TmpOGtransition.OGTKey);
+                        continue;
+                    }
                     
                     /*****judge if a new Meta states***use string hashset*/
                     foreach (OGTransition ogt in OGTranstions)
@@ -516,7 +537,7 @@ namespace PAT.CLTS.Assertions
                                 OGTransition tmpdupmark = null;
                                 foreach (OGTransition o in this.OGTranstions)
                                 {
-                                    if (o.ToMstate.MKey.Equals(TmpmarkMetastate.MKey) && !o.FromMstate.MKey.Equals(TmpMetastate1.MKey) && !TmpMetastate1.MKey.Equals(TmpmarkMetastate.MKey))
+                                    if (o.ToMstate.MKey.Equals(TmpmarkMetastate.MKey) && !o.FromMstate.MKey.Equals(TmpMetastate1.MKey))
                                     {
                                         dupmark = true;
                                         tmpdupmark = o;
@@ -532,29 +553,32 @@ namespace PAT.CLTS.Assertions
                                     if (o.ToMstate == TmpmarkMetastate)
                                     {
                                         if (dupmark == false)
-                                            TmpMetastate1.OGOutgoingTransitions.Remove(o);
+                                        {
+                                            o.ToMstate = o.FromMstate;
+                                        }
                                         else
                                         {
                                             o.ToMstate = tmpdupmark.ToMstate;
-                                            o.OGTKey = o.practical_transition.Event.ToString()+o.FromMstate.MKey+o.ToMstate.MKey;
+
                                         }
+                                        o.OGTKey = o.practical_transition.Event.ToString()+o.FromMstate.MKey+o.ToMstate.MKey;
                                         break;
                                     }
                                 }
-                                foreach (OGTransition o in this.OGTranstions)
-                                {
-                                    if (o.ToMstate == TmpmarkMetastate)
-                                    {
-                                        if (dupmark == false)
-                                            this.OGTranstions.Remove(o);
-                                        else
-                                        {
-                                            o.ToMstate = tmpdupmark.ToMstate;
-                                            o.OGTKey = o.practical_transition.Event.ToString()+o.FromMstate.MKey+o.ToMstate.MKey;
-                                        }
-                                        break;
-                                    }
-                                }
+                                //foreach (OGTransition o in this.OGTranstions)
+                                //{
+                                //    if (o.ToMstate == TmpmarkMetastate)
+                                //    {
+                                //        if (dupmark == false)
+                                //            this.OGTranstions.Remove(o);
+                                //        else
+                                //        {
+                                //            o.ToMstate = tmpdupmark.ToMstate;
+                                //            o.OGTKey = o.practical_transition.Event.ToString()+o.FromMstate.MKey+o.ToMstate.MKey;
+                                //        }
+                                //        break;
+                                //    }
+                                //}
 
                                 if (MetastateStack.Peek() == TmpmarkMetastate)
                                     MetastateStack.Pop();
@@ -615,7 +639,8 @@ namespace PAT.CLTS.Assertions
 
                     if (!(OGBA.DeclarationDatabase.TryGetValue(labelstring, out exp))) //just get event name?
                     {
-                        Ename.Add(labelstring);
+                        if(!Ename.Contains(labelstring))
+                            Ename.Add(labelstring);
                     }
 
                 }
@@ -931,12 +956,13 @@ namespace PAT.CLTS.Assertions
             }
         }
 
-        public void BuildSynOG(string M1, string M2)
+        public int BuildSynOG(string M1, string M2)
         {
             ModularOG MOG1;
             ModularOG MOG2;
             OGMeta_state Mstate1;
             OGMeta_state Mstate2;
+          
             SynOGMetastate SOGM = new SynOGMetastate();
             OGTransition SOGT = new OGTransition();
             Stack<SynOGMetastate> Todo = new Stack<SynOGMetastate>();
@@ -947,6 +973,72 @@ namespace PAT.CLTS.Assertions
             AllModularOGs.TryGetValue(M2, out MOG2);
             InitialSynOGMetastate.SynMeta_state = new KeyValuePair<OGMeta_state, OGMeta_state>(MOG1.InitialMetaState, MOG2.InitialMetaState);
             InitialSynOGMetastate.ID = MOG1.InitialMetaState.MKey + MOG2.InitialMetaState.MKey;
+
+            if (MOG1.InitialMetaState.OGOutgoingTransitions.Count == 0 && MOG2.InitialMetaState.OGOutgoingTransitions.Count == 0)
+            {
+                return 0;
+            }
+            else if (MOG1.InitialMetaState.OGOutgoingTransitions.Count == 0 && MOG2.InitialMetaState.OGOutgoingTransitions.Count != 0)
+            {
+                foreach (OGTransition MOGT2 in MOG2.InitialMetaState.OGOutgoingTransitions)
+                {
+                    SOGM.SynMeta_state = new KeyValuePair<OGMeta_state, OGMeta_state>(MOG1.InitialMetaState, MOGT2.ToMstate);
+
+
+                    SOGT.practical_transition = MOGT2.practical_transition;
+                    SOGT.FromSynMstate = InitialSynOGMetastate.ID;
+                    SOGM.ID = MOG1.InitialMetaState.MKey + MOGT2.ToMstate.MKey;
+                    SOGT.ToSynMstate = SOGM.ID;
+
+                    SOGM.InputTransition.Add(SOGT);
+                    SOGM.SynDefineCycle();
+                    SOGM.SynDefineDead(SynEvents);
+                   
+
+                    if (!SynOGMetastates.ContainsKey(SOGM.ID))
+                    {
+                        SynOGMetastates.Add(SOGM.ID, SOGM);
+                        Todo.Push(SOGM);
+                    }
+                    if(!SynOBTransitions.Contains(SOGT))
+                        SynOBTransitions.Add(SOGT);
+
+                    SOGM = new SynOGMetastate();
+                    SOGT = new OGTransition();
+                }
+                goto label;
+            }
+            else
+            {
+                foreach (OGTransition MOGT1 in MOG1.InitialMetaState.OGOutgoingTransitions)
+                {
+                    SOGM.SynMeta_state = new KeyValuePair<OGMeta_state, OGMeta_state>(MOGT1.ToMstate, MOG2.InitialMetaState);
+                    SOGM.ID = MOGT1.ToMstate.MKey + MOG2.InitialMetaState.MKey;
+
+                    SOGT.practical_transition = MOGT1.practical_transition;
+                    SOGT.FromSynMstate = InitialSynOGMetastate.ID;
+                   
+                    SOGT.ToSynMstate = SOGM.ID;
+
+                    SOGM.InputTransition.Add(SOGT);
+                    SOGM.SynDefineCycle();
+                    SOGM.SynDefineDead(SynEvents);
+                   
+
+                    if (!SynOGMetastates.ContainsKey(SOGM.ID))
+                    {
+                        SynOGMetastates.Add(SOGM.ID, SOGM);
+                        Todo.Push(SOGM);
+                    }
+
+                    if (!SynOBTransitions.Contains(SOGT))
+                        SynOBTransitions.Add(SOGT);
+
+                    SOGM = new SynOGMetastate();
+                    SOGT = new OGTransition();
+                }
+                goto label;
+            }
 
             //Initial step
             foreach (OGTransition MOGT1 in MOG1.InitialMetaState.OGOutgoingTransitions)
@@ -974,10 +1066,13 @@ namespace PAT.CLTS.Assertions
                     SOGM.SynDefineCycle();
                     SOGM.SynDefineDead(SynEvents);
 
-                    SynOGMetastates.Add(SOGM.ID, SOGM);
-                    SynOBTransitions.Add(SOGT);
-
-                    Todo.Push(SOGM);
+                    if (!SynOGMetastates.ContainsKey(SOGM.ID))
+                    {
+                        SynOGMetastates.Add(SOGM.ID, SOGM);
+                        Todo.Push(SOGM);
+                    }
+                    if (!SynOBTransitions.Contains(SOGT))
+                        SynOBTransitions.Add(SOGT);
 
                     SOGM = new SynOGMetastate();
                     SOGT = new OGTransition();
@@ -994,10 +1089,15 @@ namespace PAT.CLTS.Assertions
                         SOGM.InputTransition.Add(SOGT);
                         SOGM.SynDefineCycle();
                         SOGM.SynDefineDead(SynEvents);
-                        SynOGMetastates.Add(SOGM.ID, SOGM);
-                        SynOBTransitions.Add(SOGT);
 
-                        Todo.Push(SOGM);
+                        if (!SynOGMetastates.ContainsKey(SOGM.ID))
+                        {
+                            SynOGMetastates.Add(SOGM.ID, SOGM);
+                            Todo.Push(SOGM);
+                        }
+
+                        if (!SynOBTransitions.Contains(SOGT))
+                            SynOBTransitions.Add(SOGT);
 
                         SOGM = new SynOGMetastate();
                         SOGT = new OGTransition();
@@ -1005,12 +1105,16 @@ namespace PAT.CLTS.Assertions
                 }
             }
 
+label:
             judge = false;
             SynOGMetastate SOGM2 = new SynOGMetastate();
             //following product.
             do
             {
-                SOGM = Todo.Pop();
+                if (Todo.Count != 0)
+                    SOGM = Todo.Pop();
+                else
+                    break;
                 Mstate1 = SOGM.SynMeta_state.Key;
                 Mstate2 = SOGM.SynMeta_state.Value;
 
@@ -1033,10 +1137,14 @@ namespace PAT.CLTS.Assertions
                         SOGM2.SynDefineCycle();
                         SOGM2.SynDefineDead(SynEvents);
 
-                        SynOGMetastates.Add(SOGM2.ID, SOGM2);
-                        SynOBTransitions.Add(SOGT);
+                        if (!SynOGMetastates.ContainsKey(SOGM.ID))
+                        {
+                            SynOGMetastates.Add(SOGM2.ID, SOGM2);
+                            Todo.Push(SOGM2);
+                        }
 
-                        Todo.Push(SOGM2);
+                        if (!SynOBTransitions.Contains(SOGT))
+                            SynOBTransitions.Add(SOGT);
 
                         SOGM2 = new SynOGMetastate();
                         SOGT = new OGTransition();
@@ -1058,10 +1166,14 @@ namespace PAT.CLTS.Assertions
                         SOGM2.SynDefineCycle();
                         SOGM2.SynDefineDead(SynEvents);
 
-                        SynOGMetastates.Add(SOGM2.ID, SOGM2);
-                        SynOBTransitions.Add(SOGT);
+                        if (!SynOGMetastates.ContainsKey(SOGM.ID))
+                        {
+                            SynOGMetastates.Add(SOGM2.ID, SOGM2);
+                            Todo.Push(SOGM2);
+                        }
 
-                        Todo.Push(SOGM2);
+                        if (!SynOBTransitions.Contains(SOGT))
+                            SynOBTransitions.Add(SOGT);
 
                         SOGM2 = new SynOGMetastate();
                         SOGT = new OGTransition();
@@ -1093,10 +1205,15 @@ namespace PAT.CLTS.Assertions
                         SOGM2.SynDefineCycle();
                         SOGM2.SynDefineDead(SynEvents);
 
-                        SynOGMetastates.Add(SOGM2.ID, SOGM2);
-                        SynOBTransitions.Add(SOGT);
 
-                        Todo.Push(SOGM2);
+                        if (!SynOGMetastates.ContainsKey(SOGM.ID))
+                        {
+                            SynOGMetastates.Add(SOGM2.ID, SOGM2);
+                            Todo.Push(SOGM2);
+                        }
+
+                        if (!SynOBTransitions.Contains(SOGT))
+                            SynOBTransitions.Add(SOGT);
 
                         SOGM2 = new SynOGMetastate();
                         SOGT = new OGTransition();
@@ -1114,10 +1231,14 @@ namespace PAT.CLTS.Assertions
                             SOGM2.SynDefineCycle();
                             SOGM2.SynDefineDead(SynEvents);
 
-                            SynOGMetastates.Add(SOGM2.ID, SOGM2);
-                            SynOBTransitions.Add(SOGT);
+                            if (!SynOGMetastates.ContainsKey(SOGM.ID))
+                            {
+                                SynOGMetastates.Add(SOGM2.ID, SOGM2);
+                                Todo.Push(SOGM2);
+                            }
 
-                            Todo.Push(SOGM2);
+                            if (!SynOBTransitions.Contains(SOGT))
+                                SynOBTransitions.Add(SOGT);
 
                             SOGM2 = new SynOGMetastate();
                             SOGT = new OGTransition();
@@ -1126,7 +1247,7 @@ namespace PAT.CLTS.Assertions
                 }
 
             } while (Todo.Count > 0);
-
+            return 1;
         }
 
 
@@ -1193,7 +1314,7 @@ namespace PAT.CLTS.Assertions
             foreach (OGTransition ogt in SynOBGraph.SynOBTransitions)
             {
                 Abstransition = ogt.practical_transition;
-                if (SynOBGraph.SynOGMetastates[ogt.FromSynMstate].ID != "0")
+                if (SynOBGraph.SynOGMetastates[ogt.FromSynMstate].ID != initsm.ID)
                 {
                     AbsState1 = new State("State" + i.ToString(), SynOBGraph.SynOGMetastates[ogt.FromSynMstate].ID, false, false);
                     AbsState1.cdead = SynOBGraph.SynOGMetastates[ogt.FromSynMstate].SynIfdead;
@@ -1204,7 +1325,7 @@ namespace PAT.CLTS.Assertions
                 else
                     Abstransition.FromState = Absinitstate;
 
-                if (SynOBGraph.SynOGMetastates[ogt.ToSynMstate].ID != "0")
+                if (SynOBGraph.SynOGMetastates[ogt.ToSynMstate].ID != initsm.ID)
                 {
                     AbsState2 = new State("State" + i.ToString(), SynOBGraph.SynOGMetastates[ogt.ToSynMstate].ID, false, false);
                     AbsState2.cdead = SynOBGraph.SynOGMetastates[ogt.ToSynMstate].SynIfdead;
@@ -1212,14 +1333,19 @@ namespace PAT.CLTS.Assertions
                     i++;
                     Abstransition.ToState = AbsState2;
                 }
+                else
+                    Abstransition.ToState = Absinitstate;
 
-                if (SynOBGraph.SynOGMetastates[ogt.FromSynMstate].ID != "0")
+                if (SynOBGraph.SynOGMetastates[ogt.FromSynMstate].ID != initsm.ID)
                 {
                     AbsState1.OutgoingTransitions.Add(Abstransition);
                 }
-                if (!Absstates.Contains(AbsState1))
+                else
+                    Absinitstate.OutgoingTransitions.Add(Abstransition);
+
+                if (!Absstates.Contains(AbsState1) && AbsState1!=null)
                     Absstates.Add(AbsState1);
-                if(!Absstates.Contains(AbsState2))
+                if(!Absstates.Contains(AbsState2) && AbsState2!=null)
                     Absstates.Add(AbsState2);
                 
                 Abstransitions.Add(Abstransition);
