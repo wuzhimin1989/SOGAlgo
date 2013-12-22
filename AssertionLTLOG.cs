@@ -1364,14 +1364,21 @@ label:
             List<string> AbstractParameters = new List<string>();
             foreach (Automaton a in Process.Processes)
             {
-                AbstractParameters = AbstractParameters.Union(a.Parameters).ToList();
+                if (a.Parameters != null)
+                {
+                    AbstractParameters = AbstractParameters.Union(a.Parameters).ToList();
+
+                }
             }
 
             AbstractLTS.Parameters = AbstractParameters;
             AbstractLTS.StateNumber = Absstates.Count;
             AbstractLTS.TransitionNumber = Absstates.Count;
 
-            AbstractProcess.Processes.Add(AbstractLTS);
+            List<Automaton> tmplist = new List<Automaton>();
+            tmplist.Add(AbstractLTS);
+            
+            AbstractProcess=new LTS.Monolithic.Automata(tmplist);
             AbstractProcess.ProcessName = Process.ProcessName;
             OGInitStep = new Configuration(AbstractProcess, Constants.INITIAL_EVENT, null, InitialStep.GlobalEnv);
             
