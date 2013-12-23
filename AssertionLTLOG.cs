@@ -647,7 +647,7 @@ namespace PAT.CLTS.Assertions
             }
             foreach (Transition t in graph.Transitions)
             {
-                if (Ename.Contains(t.Event.ToString()))
+                if (Ename.Contains(t.Event.ToString()) && !OBs.Contains(t.Event.ToString()))
                 {
                     OBs.Add(t.Event.ToString());
                 }
@@ -740,8 +740,9 @@ namespace PAT.CLTS.Assertions
             {
                 TmpEnable[i] = new List<string>();
                 foreach (Transition t in M[i].OutgoingTransitions)
-                {               
-                    TmpEnable[i].Add(t.Event.ToString());
+                {   
+                    if(!TmpEnable[i].Contains(t.Event.ToString()))
+                        TmpEnable[i].Add(t.Event.ToString());
                 }
             }
 
@@ -755,7 +756,8 @@ namespace PAT.CLTS.Assertions
                     {
                         foreach (Transition ss in s.OutgoingTransitions)
                         {
-                            TmpSEnable.Add(ss.Event.ToString());
+                            if(!TmpSEnable.Contains(ss.Event.ToString()))
+                                TmpSEnable.Add(ss.Event.ToString());
                         }
                         if(TmpSEnable.Intersect(TmpE).Count() != 0)
                         {
@@ -786,7 +788,8 @@ namespace PAT.CLTS.Assertions
                     {
                         foreach (Transition t in ss.OutgoingTransitions)
                         {
-                            TmpSEnable.Add(t.Event.ToString());
+                            if(!TmpSEnable.Contains(t.Event.ToString()))
+                                TmpSEnable.Add(t.Event.ToString());
                         }
                         if(TmpSEnable.Intersect(synlist).Count() != 0)
                         {
@@ -809,7 +812,7 @@ namespace PAT.CLTS.Assertions
             Unionlist = TmpEnable[0].Intersect(TmpEnable[1]);
             for (i=0;i<2;i++)
             {
-                sync[i] = synlist.Intersect(TmpEnable[i]);
+                sync[i] = synlist.Intersect(TmpEnable[i]).ToList();
 
                 if(TmpEnable[1-i].Intersect(sync[i]).Count() != 0)
                 {
@@ -974,6 +977,8 @@ namespace PAT.CLTS.Assertions
             InitialSynOGMetastate.SynMeta_state = new KeyValuePair<OGMeta_state, OGMeta_state>(MOG1.InitialMetaState, MOG2.InitialMetaState);
             InitialSynOGMetastate.ID = MOG1.InitialMetaState.MKey + MOG2.InitialMetaState.MKey;
 
+            SynOGMetastates.Add(InitialSynOGMetastate.ID, InitialSynOGMetastate);
+
             if (MOG1.InitialMetaState.OGOutgoingTransitions.Count == 0 && MOG2.InitialMetaState.OGOutgoingTransitions.Count == 0)
             {
                 return 0;
@@ -1008,7 +1013,7 @@ namespace PAT.CLTS.Assertions
                 }
                 goto label;
             }
-            else
+            else if(MOG1.InitialMetaState.OGOutgoingTransitions.Count != 0 && MOG2.InitialMetaState.OGOutgoingTransitions.Count == 0)
             {
                 foreach (OGTransition MOGT1 in MOG1.InitialMetaState.OGOutgoingTransitions)
                 {
@@ -1137,7 +1142,7 @@ label:
                         SOGM2.SynDefineCycle();
                         SOGM2.SynDefineDead(SynEvents);
 
-                        if (!SynOGMetastates.ContainsKey(SOGM.ID))
+                        if (!SynOGMetastates.ContainsKey(SOGM2.ID))
                         {
                             SynOGMetastates.Add(SOGM2.ID, SOGM2);
                             Todo.Push(SOGM2);
@@ -1166,7 +1171,7 @@ label:
                         SOGM2.SynDefineCycle();
                         SOGM2.SynDefineDead(SynEvents);
 
-                        if (!SynOGMetastates.ContainsKey(SOGM.ID))
+                        if (!SynOGMetastates.ContainsKey(SOGM2.ID))
                         {
                             SynOGMetastates.Add(SOGM2.ID, SOGM2);
                             Todo.Push(SOGM2);
@@ -1206,7 +1211,7 @@ label:
                         SOGM2.SynDefineDead(SynEvents);
 
 
-                        if (!SynOGMetastates.ContainsKey(SOGM.ID))
+                        if (!SynOGMetastates.ContainsKey(SOGM2.ID))
                         {
                             SynOGMetastates.Add(SOGM2.ID, SOGM2);
                             Todo.Push(SOGM2);
@@ -1231,7 +1236,7 @@ label:
                             SOGM2.SynDefineCycle();
                             SOGM2.SynDefineDead(SynEvents);
 
-                            if (!SynOGMetastates.ContainsKey(SOGM.ID))
+                            if (!SynOGMetastates.ContainsKey(SOGM2.ID))
                             {
                                 SynOGMetastates.Add(SOGM2.ID, SOGM2);
                                 Todo.Push(SOGM2);
@@ -1263,7 +1268,6 @@ label:
 
         public void ModularLTS2SynOG()
         {
-        //    //ObservationGraph = new OG();
             int i=0;
             SynOBGraph = new SynOG();
             ObservationGraph = new ModularOG[Process.Processes.Count];
@@ -1278,12 +1282,10 @@ label:
             }
 
             SynOBGraph.GenerateSynEvent();
-
-        //    /***FOR TESTING,MAUNAL GENERATE LTS***/
             
             while (SynOBGraph.AllModularLTS.Count > count)
             {
-                ObservationGraph[count] = new ModularOG(LTSlist[count]);  //must get graph from pat
+                ObservationGraph[count] = new ModularOG(LTSlist[count]);
                 ObservationGraph[count].GenerateObsSet(BA, SynOBGraph.SynEvents);
                 ObservationGraph[count].InitMetastate();
                 ObservationGraph[count].BuildOG();
