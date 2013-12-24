@@ -397,15 +397,17 @@ namespace PAT.CLTS.Assertions
             HashSet<string> GeneratedMetastatesKey = new HashSet<string>(); //new
             HashSet<string> GenerateOGTransitionKey = new HashSet<string>();
             List<string> tmplist = new List<string>();
-            List<string> Obtifvisited = new List<string>();
+            List<string> Obtifvisited = new List<string>(); 
 
             OGMeta_state TmpMetastate1 = new OGMeta_state();
             OGMeta_state TmpMetastate2 = new OGMeta_state();
+            OGMeta_state TmpMetastate3 = new OGMeta_state();
             OGMeta_state TmpmarkMetastate = null;
             OGTransition TmpOGtransition = new OGTransition();
             State Tmpstate;
-            bool ifnew = true;
-            bool ifsameobs = false;
+            bool ifnew;
+            bool ifsameobs;
+            bool ifcombinehappen = false;
             int CountM = 1;
             
 
@@ -416,9 +418,11 @@ namespace PAT.CLTS.Assertions
             do
             {
                 TmpMetastate1 = MetastateStack.Pop();
-             
+
+                Obtifvisited.Clear();
                 foreach (Transition obs in TmpMetastate1.OutgoingTransitions)
                 {
+                    ifcombinehappen = false;
                     if (!Obtifvisited.Contains(obs.FromState.ID + obs.Event.BaseName + obs.ToState.ID))
                         Obtifvisited.Add(obs.FromState.ID + obs.Event.BaseName + obs.ToState.ID);
                     else
@@ -452,17 +456,56 @@ namespace PAT.CLTS.Assertions
                     }
                     
                     /*****judge if a new Meta states***use string hashset*/
-                    foreach (OGTransition ogt in OGTranstions)
+                    foreach (Transition obs2 in TmpMetastate1.OutgoingTransitions)
                     {
-                        if (obs.Event.BaseName.ToString() == ogt.practical_transition.Event.BaseName.ToString() && String.Equals(TmpMetastate1.MKey, ogt.FromMstate.MKey))
-                        {
-                            ifsameobs = true;
-                            ifnew = true;
-                            TmpmarkMetastate = ogt.ToMstate;
-                            goto label;
-                        }
+                        if (Obtifvisited.Contains(obs2.FromState.ID + obs2.Event.BaseName + obs2.ToState.ID))
+                            continue;
+                        else
+                            if (obs2.Event.BaseName.ToString() == obs.Event.BaseName.ToString())
+                            {
+                                Tmpstate = obs2.ToState;
+                                TmpMetastate3 = new OGMeta_state();
+                                if (GenerateReachableState(ref TmpMetastate3, Tmpstate))
+                                {
+                                    TmpMetastate3.DefineCycle();
+                                    TmpMetastate3.DefineDead();
+                                }
+                                foreach (State s in TmpMetastate2.ReachableStates)
+                                    tmplist.Add(s.ID);
+                                foreach (State s in TmpMetastate3.ReachableStates)
+                                {
+                                    if (!tmplist.Contains(s.ID))
+                                    {
+                                        TmpMetastate2.ReachableStates.Add(s);
+                                        tmplist.Add(s.ID);
+                                    }
+                                }
+                                foreach (Transition t in TmpMetastate3.OutgoingTransitions)
+                                {
+                                    if (!TmpMetastate2.OutgoingTransitions.Contains(t))
+                                        TmpMetastate2.OutgoingTransitions.Add(t);
+                                }
 
+                                if (TmpMetastate2.IfCycle || TmpMetastate3.IfCycle)
+                                    TmpMetastate2.IfCycle = true;
+                                if (TmpMetastate2.IfDead || TmpMetastate3.IfDead)
+                                    TmpMetastate2.IfDead = true;
+
+                                Obtifvisited.Add(obs2.FromState.ID + obs2.Event.BaseName + obs2.ToState.ID);
+                                ifcombinehappen = true;
+                            }
                     }
+
+                    if (ifcombinehappen)
+                    {
+                        TmpMetastate2.MKey = "";
+                        tmplist.Sort();
+                        foreach (string s in tmplist)
+                            TmpMetastate2.MKey += s;
+                        TmpMetastate2.MKey += TmpMetastate2.IfCycle.ToString();
+                        TmpMetastate2.MKey += TmpMetastate2.IfDead.ToString();
+                    }
+
                     if (GeneratedMetastatesKey.Contains(TmpMetastate2.MKey))
                     {
                         ifnew = false;
@@ -473,140 +516,63 @@ namespace PAT.CLTS.Assertions
                         
                     }
                     /***********************************/
-                label:
+          
                     if (ifnew)
                     {
-                        if (ifsameobs == false)
-                        {
-                            TmpOGtransition = new OGTransition();
-                            TmpOGtransition.practical_transition = obs;
-                            TmpOGtransition.FromMstate = TmpMetastate1;
-                            TmpOGtransition.ToMstate = TmpMetastate2;
-                            TmpOGtransition.OGTKey = obs.Event.ToString() + TmpMetastate1.MKey + TmpMetastate2.MKey;
-                            TmpMetastate1.OGOutgoingTransitions.Add(TmpOGtransition);
+                        TmpOGtransition = new OGTransition();
+                        TmpOGtransition.practical_transition = obs;
+                        TmpOGtransition.FromMstate = TmpMetastate1;
+                        TmpOGtransition.ToMstate = TmpMetastate2;
+                        TmpOGtransition.OGTKey = obs.Event.ToString() + TmpMetastate1.MKey + TmpMetastate2.MKey;
+                        TmpMetastate1.OGOutgoingTransitions.Add(TmpOGtransition);
 
-                            this.MetaStates.Add(TmpMetastate2);
-                            if(!GenerateOGTransitionKey.Contains(TmpOGtransition.OGTKey))
+                        this.MetaStates.Add(TmpMetastate2);
+                        if(!GenerateOGTransitionKey.Contains(TmpOGtransition.OGTKey))
+                        {
+                            this.OGTranstions.Add(TmpOGtransition);
+                        }
+                        GenerateOGTransitionKey.Add(TmpOGtransition.OGTKey);
+                        GeneratedMetastatesKey.Add(TmpMetastate2.MKey);
+                        MetastateStack.Push(TmpMetastate2);
+                    }
+                    else
+                    {
+                        ifsameobs = true;
+
+                        foreach (OGTransition o in this.OGTranstions)
+                        {
+                            if (o.ToMstate.MKey == TmpMetastate2.MKey && o.FromMstate.MKey != TmpMetastate1.MKey)
                             {
-                                this.OGTranstions.Add(TmpOGtransition);
+                                ifsameobs = false;
+                                TmpmarkMetastate = o.ToMstate;
+                                break;
                             }
-                            GenerateOGTransitionKey.Add(TmpOGtransition.OGTKey);
-                            GeneratedMetastatesKey.Add(TmpMetastate2.MKey);
-                            MetastateStack.Push(TmpMetastate2);
+                        }
+                                                 
+                         /*** judge if their from state is different, if different, just modify the transition***/
+                        TmpOGtransition = new OGTransition();
+                        TmpOGtransition.practical_transition = obs;
+                        TmpOGtransition.FromMstate = TmpMetastate1;
+                        if(ifsameobs == true)
+                        {
+                            TmpOGtransition.ToMstate = TmpMetastate1;          
                         }
                         else
                         {
-                            foreach (State s in TmpmarkMetastate.ReachableStates)
-                                tmplist.Add(s.ID);
-                            foreach (State s in TmpMetastate2.ReachableStates)
-                            {
-                                if (!TmpmarkMetastate.ReachableStates.Contains(s))
-                                {
-                                    TmpmarkMetastate.ReachableStates.Add(s);
-                                    tmplist.Add(s.ID);
-                                }
-                            }
-                            foreach (Transition t in TmpMetastate2.OutgoingTransitions)
-                                TmpmarkMetastate.OutgoingTransitions.Add(t);
-                            if (TmpmarkMetastate.IfCycle || TmpMetastate2.IfCycle)
-                                TmpmarkMetastate.IfCycle = true;
-                            if (TmpmarkMetastate.IfDead || TmpMetastate2.IfDead)
-                                TmpmarkMetastate.IfDead = true;
-
-                            GeneratedMetastatesKey.Remove(TmpmarkMetastate.MKey);
-                            TmpmarkMetastate.MKey = null;
-                            tmplist.Sort();
-                            foreach (string s in tmplist)
-                                TmpmarkMetastate.MKey += s;
-                            TmpmarkMetastate.MKey += TmpmarkMetastate.IfCycle.ToString();
-                            TmpmarkMetastate.MKey += TmpmarkMetastate.IfDead.ToString();
-
-                            if (!GeneratedMetastatesKey.Contains(TmpmarkMetastate.MKey))
-                            {
-                                GeneratedMetastatesKey.Add(TmpmarkMetastate.MKey);
-                                foreach (OGTransition o in this.OGTranstions)
-                                {
-                                    if (o.ToMstate == TmpmarkMetastate)
-                                        o.OGTKey = o.practical_transition.Event.ToString() + o.FromMstate.MKey + o.ToMstate.MKey;
-                                    break;
-                                }
-                            }
-                            else
-                            {
-                                bool dupmark = false;
-                                OGTransition tmpdupmark = null;
-                                foreach (OGTransition o in this.OGTranstions)
-                                {
-                                    if (o.ToMstate.MKey.Equals(TmpmarkMetastate.MKey) && !o.FromMstate.MKey.Equals(TmpMetastate1.MKey))
-                                    {
-                                        dupmark = true;
-                                        tmpdupmark = o;
-                                        break;
-                                    }
-                                }
-
-                                this.MetaStates.Remove(TmpmarkMetastate);
-
-                                /***Maybe should not delete the transition, but judge if their from state is different, if different, just modify the transition***/
-                                foreach (OGTransition o in TmpMetastate1.OGOutgoingTransitions)
-                                {
-                                    if (o.ToMstate == TmpmarkMetastate)
-                                    {
-                                        if (dupmark == false)
-                                        {
-                                            o.ToMstate = o.FromMstate;
-                                        }
-                                        else
-                                        {
-                                            o.ToMstate = tmpdupmark.ToMstate;
-
-                                        }
-                                        o.OGTKey = o.practical_transition.Event.ToString()+o.FromMstate.MKey+o.ToMstate.MKey;
-                                        break;
-                                    }
-                                }
-                                //foreach (OGTransition o in this.OGTranstions)
-                                //{
-                                //    if (o.ToMstate == TmpmarkMetastate)
-                                //    {
-                                //        if (dupmark == false)
-                                //            this.OGTranstions.Remove(o);
-                                //        else
-                                //        {
-                                //            o.ToMstate = tmpdupmark.ToMstate;
-                                //            o.OGTKey = o.practical_transition.Event.ToString()+o.FromMstate.MKey+o.ToMstate.MKey;
-                                //        }
-                                //        break;
-                                //    }
-                                //}
-
-                                if (MetastateStack.Peek() == TmpmarkMetastate)
-                                    MetastateStack.Pop();
-                                else
-                                {
-                                    int i = 0;
-                                    List<OGMeta_state> l = MetastateStack.ToList();
-                                    l.Remove(TmpmarkMetastate);
-                                    OGMeta_state[] tl = new OGMeta_state[l.Count];
-                                    foreach (OGMeta_state o in l)
-                                    {
-                                        tl[i] = o;
-                                        i++;
-                                    }
-                                    MetastateStack.Clear();
-                                    for (i = tl.Length - 1; i >= 0; i++)
-                                    {
-                                        MetastateStack.Push(tl[i]);
-                                    }
-                                    //copy metastatestack to another array and delete that one
-                                }
-
-                            }
+                            TmpOGtransition.ToMstate = TmpmarkMetastate;
                         }
-                    
-                    }
-                    else
+                        TmpOGtransition.OGTKey = obs.Event.ToString() + TmpMetastate1.MKey + TmpMetastate1.MKey;
+                        TmpMetastate1.OGOutgoingTransitions.Add(TmpOGtransition);
+                        TmpOGtransition.OGTKey = TmpOGtransition.FromMstate.MKey + TmpOGtransition.practical_transition.Event.ToString() + TmpOGtransition.ToMstate.MKey;
+
+                        if(!GenerateOGTransitionKey.Contains(TmpOGtransition.OGTKey))
+                        {
+                            this.OGTranstions.Add(TmpOGtransition);
+                        }
+                        GenerateOGTransitionKey.Add(TmpOGtransition.OGTKey);
+
                         CountM--;
+                    }
 
                     TmpMetastate2 = new OGMeta_state();
                 }
