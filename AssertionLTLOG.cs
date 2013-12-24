@@ -22,7 +22,8 @@ namespace PAT.CLTS.Assertions
 {
     public class OGTransition
     {
-        public Transition practical_transition;
+        public Transition practical_transition;  //the transtion in the original LTS
+        //public Transition[] practical_transitions;
         public OGMeta_state FromMstate;
         public OGMeta_state ToMstate;
 
@@ -34,6 +35,7 @@ namespace PAT.CLTS.Assertions
         public OGTransition()
         {
             practical_transition = new Transition();
+            //practical_transitions = new Transition[2]; 
             FromMstate = new OGMeta_state();
             ToMstate = new OGMeta_state();
         }
@@ -69,46 +71,9 @@ namespace PAT.CLTS.Assertions
             //MKey = new string('R');
         }
 
-        /*private bool IfStrongConnect(State s)
-        {
-            s.lowlink = Index;
-            s.Index = Index;
-            Index = Index + 1;
 
-            S.Push(s);
 
-            foreach (Transition t in s.OutgoingTransitions)
-            {
-                if (UobTransitions.Contains(t))
-                {
-                    if (t.ToState.Index == -1)
-                    {   
-                        IfStrongConnect(t.ToState);
-                        if(s.lowlink > t.ToState.lowlink)
-                            s.lowlink = t.ToState.lowlink;
-                    }
-                    else if (S.Contains(t.ToState))
-                    {
-                        if (s.lowlink > t.ToState.Index)
-                        {
-                            s.lowlink = t.ToState.Index;
-                        }
-                     }
-                }
-            }
-
-            if(s.lowlink==s.Index)
-            {
-                while(s.ID==(S.Pop()).ID);
-                return true;
-            }
-            else
-            {
-                return false;
-            }
-        }*/ //recrusive version change to iterative version
-
-        public int DefineCycle()
+        public int DefineCycle() //to judge if a metastate contains a loop
         {
             //bool ifscc = false;
             int Count = 0;
@@ -297,7 +262,7 @@ namespace PAT.CLTS.Assertions
             StatesStack = new Stack<State>();
             OGTranstions = new List<OGTransition>();
         }
-        public bool GenerateReachableState(ref OGMeta_state NewMetastate, State Ori)
+        public bool GenerateReachableState(ref OGMeta_state NewMetastate, State Ori)//to find closure
         {
             int StateClosureCount = 0;
             State tmpstate = new State();
@@ -333,9 +298,9 @@ namespace PAT.CLTS.Assertions
                             while (StatesStack.Count > 0)
                             {
                                 tmpstate2 = StatesStack.Pop();
-                                foreach (Transition t2 in tmpstate2.OutgoingTransitions) //use event to replace
+                                foreach (Transition t2 in tmpstate2.OutgoingTransitions) 
                                 {
-                                    if (OBs.Contains(t2.Event.ToString()))   //use event to define
+                                    if (OBs.Contains(t2.Event.ToString()))   
                                     {
                                         NewMetastate.OutgoingTransitions.Add(t2);
                                     }
@@ -390,7 +355,7 @@ namespace PAT.CLTS.Assertions
 
         }
 
-        public bool BuildOG()
+        public bool BuildOG() //use BFS
         {
             Stack<OGMeta_state> MetastateStack = new Stack<OGMeta_state>();
             //Stack<OGMeta_state> StoreMetastateStack = new Stack<OGMeta_state>();
@@ -439,7 +404,7 @@ namespace PAT.CLTS.Assertions
                     }
                     TmpMetastate2.MKey = TmpMetastate2.MKey + TmpMetastate2.IfCycle + TmpMetastate2.IfDead;
 
-                    if (TmpMetastate1.MKey == TmpMetastate2.MKey)
+                    if (TmpMetastate1.MKey == TmpMetastate2.MKey)  //if the metastate can reach itself
                     {
                         TmpOGtransition = new OGTransition();
                         TmpOGtransition.practical_transition = obs;
@@ -461,7 +426,7 @@ namespace PAT.CLTS.Assertions
                         if (Obtifvisited.Contains(obs2.FromState.ID + obs2.Event.BaseName + obs2.ToState.ID))
                             continue;
                         else
-                            if (obs2.Event.BaseName.ToString() == obs.Event.BaseName.ToString())
+                            if (obs2.Event.BaseName.ToString() == obs.Event.BaseName.ToString()) //if a metastate contains two obs with same event, then combine the closure of their tostate 
                             {
                                 Tmpstate = obs2.ToState;
                                 TmpMetastate3 = new OGMeta_state();
@@ -1021,15 +986,19 @@ namespace PAT.CLTS.Assertions
                     {
                         SOGM.SynMeta_state = new KeyValuePair<OGMeta_state, OGMeta_state>(MOGT1.ToMstate, MOGT2.ToMstate);
                         SOGM.ID = MOGT1.ToMstate.MKey + MOGT2.ToMstate.MKey;
+                        SOGT.practical_transition = MOGT1.practical_transition;
+                        if (MOGT2.practical_transition.LocalVariables != null)
+                            SOGT.practical_transition.LocalVariables = MOGT1.practical_transition.LocalVariables.ToList().Union(MOGT2.practical_transition.LocalVariables.ToList()).ToArray();
                         judge = true;
                     }
                     else
                     {
                         SOGM.SynMeta_state = new KeyValuePair<OGMeta_state, OGMeta_state>(MOGT1.ToMstate, MOG2.InitialMetaState);
                         SOGM.ID = MOGT1.ToMstate.MKey + MOG2.InitialMetaState.MKey;
+                        SOGT.practical_transition = MOGT1.practical_transition;
                     }
 
-                    SOGT.practical_transition = MOGT1.practical_transition;
+                   
                     SOGT.FromSynMstate = InitialSynOGMetastate.ID;
                     SOGT.ToSynMstate = SOGM.ID;
 
@@ -1160,15 +1129,18 @@ label:
                         {
                             SOGM2.SynMeta_state = new KeyValuePair<OGMeta_state, OGMeta_state>(MOGT1.ToMstate, MOGT2.ToMstate);
                             SOGM2.ID = MOGT1.ToMstate.MKey + MOGT2.ToMstate.MKey;
+                            SOGT.practical_transition = MOGT1.practical_transition;
+                            if(MOGT2.practical_transition.LocalVariables!=null)
+                                SOGT.practical_transition.LocalVariables = MOGT1.practical_transition.LocalVariables.ToList().Union(MOGT2.practical_transition.LocalVariables.ToList()).ToArray();
                             judge = true;
                         }
                         else
                         {
                             SOGM2.SynMeta_state = new KeyValuePair<OGMeta_state, OGMeta_state>(MOGT1.ToMstate, Mstate2);
                             SOGM2.ID = MOGT1.ToMstate.MKey + Mstate2.MKey;
+                            SOGT.practical_transition = MOGT1.practical_transition;
                         }
-
-                        SOGT.practical_transition = MOGT1.practical_transition;
+                   
                         SOGT.FromSynMstate = SOGM.ID;
                         SOGT.ToSynMstate = SOGM2.ID;
 
@@ -1269,6 +1241,7 @@ label:
             OGMeta_state tmpm1 = initsm.SynMeta_state.Key;
             OGMeta_state tmpm2 = initsm.SynMeta_state.Value;
             State Absinitstate = new State("State"+i.ToString(), initsm.ID, false, false);
+            Absinitstate.IsInitial = true;
             i++;
 
             Absinitstate.cdead = initsm.SynIfdead;
